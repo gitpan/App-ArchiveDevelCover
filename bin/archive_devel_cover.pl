@@ -19,7 +19,7 @@ archive_devel_cover.pl - script to archive Devel::Cover reports
 
 =head1 VERSION
 
-version 1.000
+version 1.001
 
 =head1 SYNOPSIS
 

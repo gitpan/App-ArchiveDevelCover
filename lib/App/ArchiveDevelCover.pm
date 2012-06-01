@@ -7,12 +7,17 @@ use File::Copy;
 use HTML::TableExtract;
 
 # ABSTRACT: Archive Devel::Cover reports
-our $VERSION = '1.000';
+our $VERSION = '1.001';
 
 with 'MooseX::Getopt';
 
 has [qw(from to)] => (is=>'ro',isa=>'Path::Class::Dir',coerce=>1,required=>1,);
-has 'project' => (is => 'ro', isa=>'Str');
+has 'project' => (is => 'ro', isa=>'Str', lazy_build=>1);
+sub _build_project {
+    my $self = shift;
+    my @list = $self->from->parent->dir_list;
+    return $list[-1] || 'unknown project';
+}
 has 'coverage_html' => (is=>'ro',isa=>'Path::Class::File',lazy_build=>1,traits=> ['NoGetopt']);
 sub _build_coverage_html {
     my $self = shift;
@@ -58,10 +63,16 @@ sub _build_previous_stats {
         return [undef,0,0,0];
     }
 }
+has 'diff_html' => (is=>'ro',isa=>'Path::Class::File',lazy_build=>1,traits=> ['NoGetopt']);
+sub _build_diff_html {
+    my $self = shift;
+    return $self->to->subdir($self->runtime->iso8601)->file('diff.html');
+}
 
 sub run {
     my $self = shift;
     $self->archive;
+    $self->generate_diff;
     $self->update_index;
 }
 
@@ -106,17 +117,11 @@ sub update_archive_html {
     my $runtime = $self->runtime;
     my $date = $runtime->ymd('-').' '.$runtime->hms;
     my $link = $runtime->iso8601."/coverage.html";
+    my $diff = $runtime->iso8601."/diff.html";
 
-    my $new_stat = qq{\n<tr><td><a href="$link">$date</a></td>};
+    my $new_stat = qq{\n<tr><td><a href="$link">$date</a></td><td><a href="$diff">diff</a></td>};
     foreach my $val (@$last_row) {
-        my $style;
-        given ($val) {
-            when ($_ <  75) { $style = 'c0' }
-            when ($_ <  90) { $style = 'c1' }
-            when ($_ <  100) { $style = 'c2' }
-            when ($_ >= 100) { $style = 'c3' }
-        }
-        $new_stat.=qq{<td class="$style">$val</td>};
+        $new_stat.=$self->td_style($val);
     }
     my $prev_total = $prev_stats->[3];
     my $this_total = $last_row->[-1];
@@ -151,9 +156,104 @@ sub update_archive_db {
     close $dbw;
 }
 
+sub generate_diff {
+    my $self = shift;
+
+    my $prev = $self->previous_stats;
+    return unless $prev->[0];
+
+    my $te_new = HTML::TableExtract->new( headers => [qw(file stm sub total)] );
+    $te_new->parse(scalar $self->coverage_html->slurp);
+    my $new_rows =$te_new->rows;
+    my $te_old = HTML::TableExtract->new( headers => [qw(file stm sub total)] );
+    $te_old->parse(scalar $self->to->subdir($prev->[0])->file('coverage.html')->slurp);
+    my $old_rows =$te_old->rows;
+
+    my %diff;
+    foreach my $row (@$new_rows) {
+        my $file =shift(@$row);
+        $diff{$file}=$row;
+    }
+
+    foreach my $row (@$old_rows) {
+        my $file =shift(@$row);
+        push(@{$diff{$file}},@$row);
+    }
+
+    my @output;
+    foreach my $file (sort keys %diff) {
+        my $data = $diff{$file};
+
+        my $line = qq{\n<tr><td>$file</td>};
+        foreach my $i (0,1,2) {
+            my $nv = $data->[$i] || 0;
+            my $ov = $data->[$i+3] || 0;
+            my $display = "$ov&nbsp;-&gt;&nbsp;$nv";
+            if ($nv == $ov) {
+                $line.=qq{<td>$display</td>};
+            }
+            elsif ($nv > $ov) {
+                $line.=$self->td_style(100,$display);
+            }
+            else {
+                $line.=$self->td_style(0,$display);
+            }
+        }
+        $line.="</tr>";
+        push(@output,$line);
+    }
+    my $table = join("\n",@output);
+    my $tpl = $self->_diff_template;
+    $tpl=~s/DATA/$table/;
+
+    my $fh = $self->diff_html->openw;
+    print $fh $tpl;
+    close $fh;
+}
+
+sub td_style {
+    my ($self, $val, $display) = @_;
+    $display //=$val;
+    my $style;
+    given ($val) {
+        when ($_ <  75) { $style = 'c0' }
+        when ($_ <  90) { $style = 'c1' }
+        when ($_ <  100) { $style = 'c2' }
+        when ($_ >= 100) { $style = 'c3' }
+    }
+    return qq{<td class="$style">$display</td>};
+}
+
 sub _archive_template {
     my $self = shift;
-    my $name = $self->project || 'unnamed project';
+    my $name = $self->project;
+    $self->_page_template(
+        "Test Coverage Archive for $name",
+        q{
+<table>
+<tr><th>Coverage Report</th><th>diff</th><th>stmt</th><th>sub</th><th>total</th><th>Trend</th></tr>
+<!-- INSERT -->
+</table>
+        });
+}
+
+sub _diff_template {
+    my $self = shift;
+    my $name = $self->project;
+    $self->_page_template(
+        "Test Coverage Diff for $name",
+        q{
+<table>
+<tr><th>File</th><th>stmt</th><th>sub</th><th>total</th></tr>
+DATA
+</table>
+        });
+}
+
+sub _page_template {
+    my ($self, $title, $content) = @_;
+
+    my $name = $self->project;
     my $class = ref($self);
     my $version = $class->VERSION;
     return <<"EOTMPL";
@@ -171,18 +271,16 @@ sub _archive_template {
 <body>
 
 <body>
-<h1>Test Coverage Archive for $name</h1>
+<h1>$title</h1>
 
-<table>
-<tr><th>Coverage Report</th><th>stmt</th><th>sub</th><th>total</th><th>Trend</th></tr>
-<!-- INSERT -->
-</table>
+$content
 
 <p>Generated by <a href="http://metacpan.org/module/$class">$class</a> version $version.</p>
 
 </body>
 </html>
 EOTMPL
+
 }
 
 __PACKAGE__->meta->make_immutable;
@@ -198,7 +296,7 @@ App::ArchiveDevelCover - Archive Devel::Cover reports
 
 =head1 VERSION
 
-version 1.000
+version 1.001
 
 =head1 SYNOPSIS
 

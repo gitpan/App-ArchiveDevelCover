@@ -43,8 +43,7 @@
             "Test::File" : 0,
             "Test::More" : 0,
             "Test::Most" : 0,
-            "Test::Trap" : 0,
-            "testdata::setup" : 0
+            "Test::Trap" : 0
          }
       }
    },
@@ -56,6 +55,6 @@
          "web" : "http://github.com/domm/App-ArchiveDevelCover"
       }
    },
-   "version" : "1.000"
+   "version" : "1.001"
 }
 

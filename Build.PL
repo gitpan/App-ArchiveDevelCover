@@ -14,8 +14,7 @@ my %module_build_args = (
     'Test::File' => '0',
     'Test::More' => '0',
     'Test::Most' => '0',
-    'Test::Trap' => '0',
-    'testdata::setup' => '0'
+    'Test::Trap' => '0'
   },
   'configure_requires' => {
     'Module::Build' => '0.3601'
@@ -25,7 +24,7 @@ my %module_build_args = (
     'Thomas Klausner <domm@cpan.org>'
   ],
   'dist_name' => 'App-ArchiveDevelCover',
-  'dist_version' => '1.000',
+  'dist_version' => '1.001',
   'license' => 'perl',
   'module_name' => 'App::ArchiveDevelCover',
   'recommends' => {},
