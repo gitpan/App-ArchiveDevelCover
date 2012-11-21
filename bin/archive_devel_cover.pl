@@ -9,7 +9,7 @@ use warnings;
 use App::ArchiveDevelCover;
 App::ArchiveDevelCover->new_with_options->run;
 
-
+__END__
 
 =pod
 
@@ -19,7 +19,7 @@ archive_devel_cover.pl - script to archive Devel::Cover reports
 
 =head1 VERSION
 
-version 1.001
+version 1.002
 
 =head1 SYNOPSIS
 
@@ -63,7 +63,3 @@ This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
 
 =cut
-
-
-__END__
-

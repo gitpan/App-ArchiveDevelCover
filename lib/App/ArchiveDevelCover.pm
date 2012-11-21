@@ -7,7 +7,7 @@ use File::Copy;
 use HTML::TableExtract;
 
 # ABSTRACT: Archive Devel::Cover reports
-our $VERSION = '1.001';
+our $VERSION = '1.002';
 
 with 'MooseX::Getopt';
 
@@ -116,8 +116,8 @@ sub update_archive_html {
     my $prev_stats = $self->previous_stats;
     my $runtime = $self->runtime;
     my $date = $runtime->ymd('-').' '.$runtime->hms;
-    my $link = $runtime->iso8601."/coverage.html";
-    my $diff = $runtime->iso8601."/diff.html";
+    my $link = "./".$runtime->iso8601."/coverage.html";
+    my $diff = "./".$runtime->iso8601."/diff.html";
 
     my $new_stat = qq{\n<tr><td><a href="$link">$date</a></td><td><a href="$diff">diff</a></td>};
     foreach my $val (@$last_row) {
@@ -286,7 +286,7 @@ EOTMPL
 __PACKAGE__->meta->make_immutable;
 1;
 
-
+__END__
 
 =pod
 
@@ -296,7 +296,7 @@ App::ArchiveDevelCover - Archive Devel::Cover reports
 
 =head1 VERSION
 
-version 1.001
+version 1.002
 
 =head1 SYNOPSIS
 
@@ -314,7 +314,3 @@ This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
 
 =cut
-
-
-__END__
-
